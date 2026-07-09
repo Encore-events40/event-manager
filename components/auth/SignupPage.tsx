@@ -149,7 +149,7 @@ export default function SignupPage() {
             </button>
 
             {/* Sign In Link */}
-            {/* <div className="text-center pt-1">
+             <div className="text-center pt-1">
               <p className="text-gray-400 text-xs">
                 Already have an account?
                 <Link href="/login">
@@ -162,7 +162,7 @@ export default function SignupPage() {
 
             <p className="text-center text-[0.65rem] tracking-widest text-gray-300 uppercase">
               ADMIN ACCESS IS ISSUED DIRECTLY NOT SELF-SERVE
-            </p>  */}
+            </p>  
           </form>
         </div>
       </div>
