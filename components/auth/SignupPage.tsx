@@ -163,7 +163,6 @@ export default function SignupPage() {
             <p className="text-center text-[0.65rem] tracking-widest text-gray-300 uppercase">
               ADMIN ACCESS IS ISSUED DIRECTLY NOT SELF-SERVE
             </p>  */}
-            
           </form>
         </div>
       </div>
