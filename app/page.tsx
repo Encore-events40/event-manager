@@ -1,7 +1,23 @@
-export default function Home() {
-  return (
-    <main className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-4xl font-bold">Welcome to Event Manager</h1>
-    </main>
-  );
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.role) {
+    redirect("/select-role");
+  }
+
+  redirect(`/${profile.role}`);
 }

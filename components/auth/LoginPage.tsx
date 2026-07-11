@@ -1,9 +1,54 @@
 "use client";
 
+import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const supabase = createClient();
+
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Middleware Rule 3 will detect the active session and redirect to the
+    // user's role dashboard. A hard navigation triggers the middleware.
+    window.location.href = "/";
+  }
+
+  async function handleGoogleLogin() {
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+    // On success the browser is redirected to Google — no further action needed.
+  }
+
   return (
     <main className="min-h-screen bg-[#F6F4F3] flex items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
@@ -47,15 +92,26 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form className="mt-6 lg:mt-7 space-y-4 lg:space-y-5">
+          <form onSubmit={handleEmailLogin} className="mt-6 lg:mt-7 space-y-4 lg:space-y-5">
+            {/* Inline error */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
+                {error}
+              </div>
+            )}
+
             <div>
               <label className="text-gray-600 text-sm lg:text-base font-semibold block mb-2">
                 Email
               </label>
 
               <input
+                id="login-email"
                 type="email"
                 placeholder="Enter your Email here"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
               />
             </div>
@@ -66,31 +122,39 @@ export default function LoginPage() {
               </label>
 
               <input
+                id="login-password"
                 type="password"
                 placeholder="Enter your Password here"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
                 className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
               />
             </div>
 
-            <button className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#7C9BD2] hover:bg-[#6888c3] transition text-white text-base lg:text-lg font-bold">
-              Log in
+            <button
+              id="login-submit"
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#7C9BD2] hover:bg-[#6888c3] transition text-white text-base lg:text-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading ? "Logging in…" : "Log in"}
             </button>
 
             {/* Divider */}
 
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-gray-300" />
-
-              <span className="text-gray-500 text-xs lg:text-sm font-semibold">
-                or
-              </span>
-
+              <span className="text-gray-500 text-xs lg:text-sm font-semibold">or</span>
               <div className="flex-1 h-px bg-gray-300" />
             </div>
 
             <button
+              id="login-google"
               type="button"
-              className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#B8C8E6] hover:bg-[#A8BCDF] transition flex items-center justify-center gap-2 text-white text-xs lg:text-sm font-semibold"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#B8C8E6] hover:bg-[#A8BCDF] transition flex items-center justify-center gap-2 text-white text-xs lg:text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <FcGoogle size={20} />
               continue with google
