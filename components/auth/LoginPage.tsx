@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(error.message);
@@ -26,9 +26,20 @@ export default function LoginPage() {
       return;
     }
 
-    // Middleware Rule 3 will detect the active session and redirect to the
-    // user's role dashboard. A hard navigation triggers the middleware.
-    window.location.href = "/";
+    // Look up role directly and redirect there — matched via user_id,
+    // NOT id (profiles.id is its own uuid, distinct from the auth id).
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .single();
+
+    if (!profile?.role) {
+      window.location.href = "/select-role";
+      return;
+    }
+
+    window.location.href = `/${profile.role}`;
   }
 
   async function handleGoogleLogin() {
@@ -67,7 +78,7 @@ export default function LoginPage() {
 
           <div className="absolute bottom-8 lg:bottom-14 left-6 lg:left-12 right-6 lg:right-12">
             <h1 className="text-white text-3xl lg:text-5xl font-bold leading-tight">
-              where events find
+              Where events find
               <br />
               <span className="text-[#8EA7FF]">their people.</span>
             </h1>
@@ -112,7 +123,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base text-black outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -128,7 +139,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base text-black outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -157,7 +168,7 @@ export default function LoginPage() {
               className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#B8C8E6] hover:bg-[#A8BCDF] transition flex items-center justify-center gap-2 text-white text-xs lg:text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <FcGoogle size={20} />
-              continue with google
+              Continue with google
             </button>
 
             <div className="text-center pt-1">
@@ -171,7 +182,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <p className="text-center text-[0.65rem] tracking-widest text-gray-300 uppercase">
+            <p className="text-center text-[0.65rem] tracking-widest text-black uppercase">
               ADMIN ACCESS IS ISSUED DIRECTLY NOT SELF-SERVE
             </p>
           </form>

@@ -23,7 +23,21 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    // role is passed as signup metadata — the handle_new_user trigger
+    // reads it and sets profiles.role immediately when the profiles row
+    // is created. Do NOT also write to `profiles` manually here: that
+    // used to happen via a separate upsert keyed on `id`, but
+    // profiles.id is NOT the auth user id (profiles.user_id is) — that
+    // upsert was creating a second, orphaned profile row with no
+    // user_id, while the trigger's real row (linked via user_id) kept
+    // role: null. The trigger is the single source of truth now.
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { role: selectedRole },
+      },
+    });
 
     if (signUpError || !data.user) {
       setError(signUpError?.message ?? "Signup failed. Please try again.");
@@ -31,13 +45,10 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .upsert({ id: data.user.id, role: selectedRole });
-
-    if (profileError) {
-      setError("Account created but could not save your role. Please contact support.");
-      setLoading(false);
+    if (!data.session) {
+      // Email confirmation is required — role is already saved by the
+      // trigger, nothing left to do until they confirm and log in.
+      router.push("/login?confirmEmail=1");
       return;
     }
 
@@ -104,11 +115,10 @@ export default function SignupPage() {
               type="button"
               id="role-volunteer"
               onClick={() => setSelectedRole("volunteer")}
-              className={`p-2 lg:p-3 rounded-lg border-2 transition-all ${
-                selectedRole === "volunteer"
-                  ? "border-[#8B5CF6] bg-[#F3E8FF]"
-                  : "border-gray-300 bg-white hover:border-gray-400"
-              }`}
+              className={`p-2 lg:p-3 rounded-lg border-2 transition-all ${selectedRole === "volunteer"
+                ? "border-[#8B5CF6] bg-[#F3E8FF]"
+                : "border-gray-300 bg-white hover:border-gray-400"
+                }`}
             >
               <div className="text-lg lg:text-2xl mb-0.5">??</div>
               <h3 className={`text-xs lg:text-sm font-bold mb-0 ${selectedRole === "volunteer" ? "text-[#7C3AED]" : "text-gray-400"}`}>
@@ -121,11 +131,10 @@ export default function SignupPage() {
               type="button"
               id="role-influencer"
               onClick={() => setSelectedRole("influencer")}
-              className={`p-2 lg:p-3 rounded-lg border-2 transition-all ${
-                selectedRole === "influencer"
-                  ? "border-[#8B5CF6] bg-[#F3E8FF]"
-                  : "border-gray-300 bg-white hover:border-gray-400"
-              }`}
+              className={`p-2 lg:p-3 rounded-lg border-2 transition-all ${selectedRole === "influencer"
+                ? "border-[#8B5CF6] bg-[#F3E8FF]"
+                : "border-gray-300 bg-white hover:border-gray-400"
+                }`}
             >
               <div className="text-lg lg:text-2xl mb-0.5">??</div>
               <h3 className={`text-xs lg:text-sm font-bold mb-0 ${selectedRole === "influencer" ? "text-[#7C3AED]" : "text-gray-400"}`}>
@@ -153,7 +162,7 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base text-black outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -169,7 +178,7 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base text-black outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -177,11 +186,10 @@ export default function SignupPage() {
               id="signup-submit"
               type="submit"
               disabled={!selectedRole || loading}
-              className={`w-full h-12 lg:h-14 rounded-lg lg:rounded-xl transition text-white text-lg lg:text-xl font-bold ${
-                selectedRole && !loading
-                  ? "bg-[#7C9BD2] hover:bg-[#6888c3]"
-                  : "bg-gray-300 cursor-not-allowed"
-              }`}
+              className={`w-full h-12 lg:h-14 rounded-lg lg:rounded-xl transition text-white text-lg lg:text-xl font-bold ${selectedRole && !loading
+                ? "bg-[#7C9BD2] hover:bg-[#6888c3]"
+                : "bg-gray-300 cursor-not-allowed"
+                }`}
             >
               {loading ? "Creating account..." : `Sign up as ${selectedRole || "..."}`}
             </button>
@@ -200,7 +208,7 @@ export default function SignupPage() {
               className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#B8C8E6] hover:bg-[#A8BCDF] transition flex items-center justify-center gap-2 text-white text-xs lg:text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <FcGoogle size={20} />
-              continue with google
+              Continue with google
             </button>
 
             <div className="text-center pt-1">
@@ -214,7 +222,7 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <p className="text-center text-[0.65rem] tracking-widest text-gray-300 uppercase">
+            <p className="text-center text-[0.65rem] tracking-widest text-black uppercase">
               ADMIN ACCESS IS ISSUED DIRECTLY NOT SELF-SERVE
             </p>
           </form>

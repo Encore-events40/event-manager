@@ -32,11 +32,11 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const url = request.nextUrl.clone()
-  
+
   // Define protected paths
-  const isDashboard = 
-    url.pathname.startsWith('/admin') || 
-    url.pathname.startsWith('/volunteer') || 
+  const isDashboard =
+    url.pathname.startsWith('/admin') ||
+    url.pathname.startsWith('/volunteer') ||
     url.pathname.startsWith('/influencer')
 
   // Rule 1: Block logged-out users from dashboards
@@ -50,7 +50,7 @@ export async function updateSession(request: NextRequest) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single()
 
     const role = profile?.role
@@ -64,12 +64,12 @@ export async function updateSession(request: NextRequest) {
       url.pathname = `/${role}`
       return NextResponse.redirect(url)
     }
-    
+
     if (url.pathname.startsWith('/volunteer') && role !== 'volunteer') {
       url.pathname = `/${role}`
       return NextResponse.redirect(url)
     }
-    
+
     if (url.pathname.startsWith('/influencer') && role !== 'influencer') {
       url.pathname = `/${role}`
       return NextResponse.redirect(url)
@@ -81,9 +81,9 @@ export async function updateSession(request: NextRequest) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single()
-      
+
     if (profile?.role) {
       url.pathname = `/${profile.role}`
       return NextResponse.redirect(url)

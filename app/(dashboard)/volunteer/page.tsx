@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import SignOutButton from "../../../components/auth/SignOutButton";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 export default async function VolunteerDashboard() {
   const supabase = await createClient();
