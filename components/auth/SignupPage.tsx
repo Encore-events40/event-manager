@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import Link from "next/link";
+import { signup } from "@/lib/actions/auth";
 
 export default function SignupPage() {
   const [selectedRole, setSelectedRole] = useState<
@@ -54,6 +55,7 @@ export default function SignupPage() {
           <div className="mt-4 lg:mt-5 grid grid-cols-2 gap-2 lg:gap-3">
             {/* Volunteer Option */}
             <button
+              type="button"
               onClick={() => setSelectedRole("volunteer")}
               className={`p-2 lg:p-3 rounded-lg border-2 transition-all ${
                 selectedRole === "volunteer"
@@ -72,6 +74,7 @@ export default function SignupPage() {
 
             {/* Influencer Option */}
             <button
+              type="button"
               onClick={() => setSelectedRole("influencer")}
               className={`p-2 lg:p-3 rounded-lg border-2 transition-all ${
                 selectedRole === "influencer"
@@ -89,7 +92,14 @@ export default function SignupPage() {
             </button>
           </div>
 
-          <form className="mt-5 lg:mt-6 space-y-4 lg:space-y-5">
+          <form 
+            action={async (formData: FormData) => {
+              if (selectedRole) {
+                await signup(formData, selectedRole);
+              }
+            }} 
+            className="mt-5 lg:mt-6 space-y-4 lg:space-y-5"
+          >
             {/* Email Field */}
             <div>
               <label className="text-gray-600 text-sm lg:text-base font-semibold block mb-2">
@@ -98,8 +108,10 @@ export default function SignupPage() {
 
               <input
                 type="email"
+                name="email"
+                required
                 placeholder="Enter your Email here"
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 bg-white px-4 text-black text-sm lg:text-base outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -111,13 +123,16 @@ export default function SignupPage() {
 
               <input
                 type="password"
+                name="password"
+                required
                 placeholder="Enter your Password here"
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 bg-white px-4 text-black text-sm lg:text-base outline-none focus:border-indigo-500"
               />
             </div>
 
             {/* Sign Up Button */}
             <button
+              type="submit"
               disabled={!selectedRole}
               className={`w-full h-12 lg:h-14 rounded-lg lg:rounded-xl transition text-white text-lg lg:text-xl font-bold ${
                 selectedRole
@@ -145,7 +160,7 @@ export default function SignupPage() {
               className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#B8C8E6] hover:bg-[#A8BCDF] transition flex items-center justify-center gap-2 text-white text-xs lg:text-sm font-semibold"
             >
               <FcGoogle size={20} />
-              continue with google
+              Continue with Google
             </button>
 
             {/* Sign In Link */}
