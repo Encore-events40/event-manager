@@ -2,6 +2,7 @@
 
 import { FcGoogle } from "react-icons/fc";
 import Link from "next/link";
+import { login } from "@/lib/actions/auth";
 
 export default function LoginPage() {
   return (
@@ -47,7 +48,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form className="mt-6 lg:mt-7 space-y-4 lg:space-y-5">
+          <form action={login} className="mt-6 lg:mt-7 space-y-4 lg:space-y-5">
             <div>
               <label className="text-gray-600 text-sm lg:text-base font-semibold block mb-2">
                 Email
@@ -55,8 +56,10 @@ export default function LoginPage() {
 
               <input
                 type="email"
+                name="email"
+                required
                 placeholder="Enter your Email here"
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 bg-white px-4 text-black text-sm lg:text-base outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -67,12 +70,14 @@ export default function LoginPage() {
 
               <input
                 type="password"
+                name="password"
+                required
                 placeholder="Enter your Password here"
-                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base outline-none focus:border-indigo-500"
+                className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 bg-white px-4 text-black text-sm lg:text-base outline-none focus:border-indigo-500"
               />
             </div>
 
-            <button className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#7C9BD2] hover:bg-[#6888c3] transition text-white text-base lg:text-lg font-bold">
+            <button type="submit" className="w-full h-11 lg:h-13 rounded-lg lg:rounded-xl bg-[#7C9BD2] hover:bg-[#6888c3] transition text-white text-base lg:text-lg font-bold">
               Log in
             </button>
 
