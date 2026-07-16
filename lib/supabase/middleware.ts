@@ -55,6 +55,7 @@ export async function updateSession(request: NextRequest) {
 
     const role = profile?.role
 
+    // If the database can't find a role, kick them out
     if (!role) {
       url.pathname = '/login'
       return NextResponse.redirect(url)
@@ -76,8 +77,8 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Rule 3: Redirect logged-in users away from auth pages
-  if (user && (url.pathname === '/login' || url.pathname === '/signup')) {
+  // Rule 3: Redirect logged-in users away from auth pages and the root home page
+  if (user && (url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/')) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')

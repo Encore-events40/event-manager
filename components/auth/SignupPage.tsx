@@ -158,10 +158,12 @@ export default function SignupPage() {
               <input
                 id="signup-email"
                 type="email"
+                name="email"
+                required
                 placeholder="Enter your Email here"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+
                 className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base text-black outline-none focus:border-indigo-500"
               />
             </div>
@@ -173,10 +175,11 @@ export default function SignupPage() {
               <input
                 id="signup-password"
                 type="password"
+                name="password"
+                required
                 placeholder="Enter your Password here"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
                 minLength={6}
                 className="w-full h-12 lg:h-14 rounded-lg lg:rounded-xl border border-gray-300 px-4 text-sm lg:text-base text-black outline-none focus:border-indigo-500"
               />
