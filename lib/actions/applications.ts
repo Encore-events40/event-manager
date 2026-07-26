@@ -12,7 +12,6 @@ export async function applyForEvent(eventId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Authentication required")
 
-  // Verify user is a volunteer
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, role')
@@ -23,13 +22,12 @@ export async function applyForEvent(eventId: string) {
     throw new Error("Unauthorized: Only volunteers can apply to events")
   }
 
-  // Insert application row (Postgres schema handles default 'pending' status)
   const { error } = await supabase
     .from('applications')
     .insert([
       {
         event_id: eventId,
-        volunteer_id: profile.id, // using the profiles table primary key relation
+        volunteer_id: profile.id,
       }
     ])
 
@@ -45,7 +43,7 @@ export async function applyForEvent(eventId: string) {
  * Allows an admin to approve or reject a volunteer application
  */
 export async function updateApplicationStatus(
-  applicationId: string, 
+  applicationId: string,
   status: 'approved' | 'rejected'
 ) {
   const supabase = await createClient()
@@ -53,7 +51,6 @@ export async function updateApplicationStatus(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Authentication required")
 
-  // Verify administrative privileges
   const { data: adminProfile } = await supabase
     .from('profiles')
     .select('role, id')
@@ -64,16 +61,21 @@ export async function updateApplicationStatus(
     throw new Error("Unauthorized: Administrative access required")
   }
 
-  // Update status and fetch associated details for email notifications
+  // NOTE: `applications` has two foreign keys into `profiles`
+  // (volunteer_id and reviewed_by), so `.select('*, profiles(...)')`
+  // is ambiguous — PostgREST can't tell which relationship you mean and
+  // throws "more than one relationship was found". Update first, then
+  // fetch the volunteer's profile and the event separately instead of
+  // embedding.
   const { data: updatedApp, error: updateError } = await supabase
     .from('applications')
     .update({
       status,
       reviewed_at: new Date().toISOString(),
-      reviewed_by: adminProfile.id
+      reviewed_by: adminProfile.id,
     })
     .eq('id', applicationId)
-    .select('*, events(title), profiles(email)')
+    .select('*')
     .single()
 
   if (updateError) throw new Error(updateError.message)
@@ -81,15 +83,20 @@ export async function updateApplicationStatus(
   // Trigger transactional email if the application is approved
   if (status === 'approved' && updatedApp) {
     try {
-      const targetEmail = (updatedApp.profiles as any)?.email
-      const eventName = (updatedApp.events as any)?.title
+      const [{ data: volunteerProfile }, { data: event }] = await Promise.all([
+        supabase.from('profiles').select('email').eq('id', updatedApp.volunteer_id).single(),
+        supabase.from('events').select('title').eq('id', updatedApp.event_id).single(),
+      ])
 
-      if (targetEmail && eventName) {
-        // Intercept and ping the internal route handler
-        await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '')}.supabase.co/api/email`, {
+      if (volunteerProfile?.email && event?.title) {
+        // Call this app's OWN /api/email route — not Supabase's domain.
+        // Requires NEXT_PUBLIC_SITE_URL to be set (e.g.
+        // http://localhost:3000 in dev, your real domain in production).
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+        await fetch(`${siteUrl}/api/email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: targetEmail, eventName }),
+          body: JSON.stringify({ to: volunteerProfile.email, eventName: event.title }),
         })
       }
     } catch (emailErr) {
@@ -105,7 +112,7 @@ export async function updateApplicationStatus(
  */
 export async function listAllApplications() {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Authentication required")
 
@@ -119,17 +126,36 @@ export async function listAllApplications() {
     throw new Error("Unauthorized: Administrative access required")
   }
 
-  const { data, error } = await supabase
+  // Same ambiguous-embed issue as above — fetch applications, then bulk
+  // fetch the referenced profiles/events separately and merge in JS.
+  const { data: applications, error } = await supabase
     .from('applications')
-    .select(`
-      *,
-      events (title, date),
-      profiles (full_name, email, role)
-    `)
+    .select('*')
     .order('applied_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return data
+  if (!applications || applications.length === 0) return []
+
+  const profileIds = new Set<string>()
+  const eventIds = new Set<string>()
+  for (const a of applications) {
+    if (a.volunteer_id) profileIds.add(a.volunteer_id)
+    if (a.event_id) eventIds.add(a.event_id)
+  }
+
+  const [{ data: profiles }, { data: events }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email, role').in('id', Array.from(profileIds)),
+    supabase.from('events').select('id, title, date').in('id', Array.from(eventIds)),
+  ])
+
+  const profilesById = new Map((profiles ?? []).map((p) => [p.id, p]))
+  const eventsById = new Map((events ?? []).map((e) => [e.id, e]))
+
+  return applications.map((a) => ({
+    ...a,
+    profiles: profilesById.get(a.volunteer_id) ?? null,
+    events: eventsById.get(a.event_id) ?? null,
+  }))
 }
 
 /**
@@ -137,7 +163,7 @@ export async function listAllApplications() {
  */
 export async function getUserApplications() {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Authentication required")
 
@@ -149,6 +175,8 @@ export async function getUserApplications() {
 
   if (!profile) throw new Error("Profile not found")
 
+  // Unambiguous — applications has only one FK to events, so this embed
+  // is fine as-is.
   const { data, error } = await supabase
     .from('applications')
     .select(`
