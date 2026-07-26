@@ -30,9 +30,17 @@ export async function signup(formData: FormData, role: 'volunteer' | 'influencer
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        role,
+      }
+    }
   })
 
-  if (signUpError) throw new Error(signUpError.message)
+  if (signUpError) {
+     console.error("FULL AUTH ERROR:", signUpError)
+     throw new Error(JSON.stringify(signUpError))
+   }
   
   if (data.user) {
     // 2. Automatically create their profile row with the selected role
@@ -46,7 +54,7 @@ export async function signup(formData: FormData, role: 'volunteer' | 'influencer
         }
       ])
 
-    if (profileError) {
+    if (profileError && profileError.code !== '23505') {
       console.error("Profile creation failed:", profileError)
       throw new Error("Account created, but profile setup failed.")
     }
