@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+type AdminApplicationItem = {
+  applicant?: {
+    full_name?: string | null
+    email?: string | null
+    role?: string | null
+  } | null
+}
+
 async function getAdminOrError() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,7 +57,7 @@ export async function GET(request: NextRequest) {
       applied_at,
       reviewed_at,
       reviewed_by,
-      events (id, title, date, location),
+      events (id, title, date, location, volunteer_pay),
       applicant:profiles!volunteer_id (id, full_name, email, role, phone, skills),
       reviewer:profiles!reviewed_by (id, full_name, email)
     `, { count: 'exact' })
@@ -70,7 +78,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, message: fetchError.message }, { status: 500 })
   }
 
-  let filteredItems = (data ?? []) as any[]
+  let filteredItems = (data ?? []) as AdminApplicationItem[]
 
   // Filter by applicant role (from applicant profile)
   if (role !== 'all') {
