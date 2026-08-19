@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FiDollarSign, FiUsers, FiClipboard } from "react-icons/fi";
 
 interface PayoutRecord {
@@ -20,12 +20,8 @@ export default function PayoutsPage() {
   });
 
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = false;
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setIsLoading(false);
-  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -82,7 +78,7 @@ export default function PayoutsPage() {
           Payouts
         </h1>
         <p className="text-gray-500 max-w-2xl">
-          Payments happen outside the platform. Record what's been paid and
+          Payments happen outside the platform. Record what&apos;s been paid and
           volunteer totals update automatically.
         </p>
         {error && (
@@ -151,7 +147,7 @@ export default function PayoutsPage() {
                   ↑ 12% vs last This Month
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0">
                 <FiDollarSign className="w-6 h-6 text-green-600" />
               </div>
             </div>
@@ -168,7 +164,7 @@ export default function PayoutsPage() {
                   {volunteersPaid}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
                 <FiUsers className="w-6 h-6 text-gray-600" />
               </div>
             </div>
@@ -183,7 +179,7 @@ export default function PayoutsPage() {
                 </p>
                 <p className="text-2xl font-black text-gray-900">3</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
                 <FiClipboard className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
