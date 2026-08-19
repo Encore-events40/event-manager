@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FiDollarSign, FiUsers, FiClipboard } from "react-icons/fi";
 
 interface PayoutRecord {
@@ -13,31 +13,19 @@ interface PayoutRecord {
 export default function PayoutsPage() {
   const [formData, setFormData] = useState({
     volunteerName: "",
+    eventName: "",
     amount: "",
     notes: "",
     additionalAmount: "",
   });
 
-  const [payouts, setPayouts] = useState<PayoutRecord[]>([
-    {
-      id: "1",
-      volunteerName: "Priya Nair",
-      eventName: "Riverside Music Fest",
-      amount: 7.0,
-    },
-    {
-      id: "2",
-      volunteerName: "Kabir Singh",
-      eventName: "Riverside Music Fest",
-      amount: 6.0,
-    },
-    {
-      id: "3",
-      volunteerName: "Priya Nair",
-      eventName: "Riverside Music Fest",
-      amount: 7.0,
-    },
-  ]);
+  const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -49,30 +37,38 @@ export default function PayoutsPage() {
     }));
   };
 
-  const handleRecordPayout = (e: React.FormEvent) => {
+  const handleRecordPayout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.volunteerName && formData.amount) {
-      const newPayout: PayoutRecord = {
-        id: Date.now().toString(),
-        volunteerName: formData.volunteerName,
-        eventName: "Event Name",
-        amount: parseFloat(formData.amount),
-      };
-      setPayouts([newPayout, ...payouts]);
-      setFormData({
-        volunteerName: "",
-        amount: "",
-        notes: "",
-        additionalAmount: "",
-      });
+    setError("");
+    const amount =
+      Number(formData.amount) + Number(formData.additionalAmount || 0);
+    if (!formData.volunteerName || !formData.eventName || amount <= 0) {
+      setError("Enter a volunteer, event, and a valid amount.");
+      return;
     }
+    setPayouts((currentPayouts) => [
+      {
+        id: crypto.randomUUID(),
+        volunteerName: formData.volunteerName,
+        eventName: formData.eventName,
+        amount,
+      },
+      ...currentPayouts,
+    ]);
+    setFormData({
+      volunteerName: "",
+      eventName: "",
+      amount: "",
+      notes: "",
+      additionalAmount: "",
+    });
   };
 
   const totalPaid = payouts.reduce((sum, payout) => sum + payout.amount, 0);
   const volunteersPaid = new Set(payouts.map((p) => p.volunteerName)).size;
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-1 sm:px-2">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-2">
@@ -82,17 +78,22 @@ export default function PayoutsPage() {
           <span className="text-gray-400">/</span>
           <span className="text-sm font-semibold text-gray-700">Payouts</span>
         </div>
-        <h1 className="text-4xl font-black text-gray-900 mb-2">Payouts</h1>
+        <h1 className="text-3xl font-black text-[#857b91] sm:text-4xl mb-2">
+          Payouts
+        </h1>
         <p className="text-gray-500 max-w-2xl">
-          Payments happen outside the platform. Record what's been paid
+          Payments happen outside the platform. Record what's been paid and
           volunteer totals update automatically.
         </p>
+        {error && (
+          <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>
+        )}
       </div>
 
       {/* Stats Cards & Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart Section */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-8 border border-gray-200 shadow-sm">
+        <div className="lg:col-span-2 bg-white p-5 sm:p-8 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-black text-gray-900">
               Payout by Months
@@ -100,7 +101,7 @@ export default function PayoutsPage() {
           </div>
 
           {/* Histogram */}
-          <div className="flex items-end justify-center gap-4 h-64">
+          <div className="flex h-64 items-end justify-around gap-2 border-b border-gray-200 bg-white px-2 pt-5 sm:gap-8">
             {[
               { month: "J", value: 8 },
               { month: "F", value: 10 },
@@ -113,8 +114,8 @@ export default function PayoutsPage() {
               >
                 <div className="flex items-end gap-2">
                   <div
-                    className="w-12 bg-cyan-500 rounded-sm transition-all hover:bg-cyan-600"
-                    style={{ height: `${item.value * 8}px` }}
+                    className="w-10 bg-cyan-500 transition-all hover:bg-cyan-600 sm:w-16"
+                    style={{ height: `${item.value * 6}px` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-600">
@@ -191,7 +192,7 @@ export default function PayoutsPage() {
       </div>
 
       {/* Record a Payout Form */}
-      <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm">
+      <div className="bg-white p-5 sm:p-8 border border-gray-100 shadow-sm">
         <h2 className="text-2xl font-black text-gray-900 mb-6">
           Record a payout
         </h2>
@@ -209,6 +210,21 @@ export default function PayoutsPage() {
                 value={formData.volunteerName}
                 onChange={handleInputChange}
                 placeholder="Volunteer's name"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Event
+              </label>
+              <input
+                type="text"
+                name="eventName"
+                value={formData.eventName}
+                onChange={handleInputChange}
+                placeholder="Event name"
+                required
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition"
               />
             </div>
@@ -278,20 +294,26 @@ export default function PayoutsPage() {
           Recent Payouts
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {payouts.map((payout) => (
-            <div
-              key={payout.id}
-              className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"
-            >
-              <p className="font-semibold text-gray-900 text-sm mb-1">
-                {payout.volunteerName}
-              </p>
-              <p className="text-xs text-gray-500 mb-3">{payout.eventName}</p>
-              <p className="text-lg font-black text-gray-900">
-                ₹{payout.amount.toFixed(2)}
-              </p>
-            </div>
-          ))}
+          {isLoading ? (
+            <p className="text-sm text-gray-500">Loading payouts...</p>
+          ) : payouts.length === 0 ? (
+            <p className="text-sm text-gray-500">No payouts recorded yet.</p>
+          ) : (
+            payouts.map((payout) => (
+              <div
+                key={payout.id}
+                className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"
+              >
+                <p className="font-semibold text-gray-900 text-sm mb-1">
+                  {payout.volunteerName}
+                </p>
+                <p className="text-xs text-gray-500 mb-3">{payout.eventName}</p>
+                <p className="text-lg font-black text-gray-900">
+                  ₹{payout.amount.toFixed(2)}
+                </p>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
