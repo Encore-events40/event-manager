@@ -11,6 +11,11 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   skills: string | null;
+  gender: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  pincode: string | null;
   created_at: string;
 }
 
