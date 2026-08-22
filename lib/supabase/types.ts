@@ -100,3 +100,13 @@ export interface UnifiedApplicationItem {
   reviewed_at: string | null;
   reviewed_by: string | null;
 }
+
+export interface BrandEnquiry {
+  id: string;
+  company: string;
+  contact: string;
+  email: string | null;
+  summary: string | null;
+  status: 'new' | 'in_progress' | 'resolved';
+  created_at: string;
+}
