@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 async function getAdminOrError() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -76,8 +81,10 @@ export async function PATCH(
   // Trigger transactional email notification if approved
   if (body.status === 'approved' && updatedApp) {
     try {
-      const targetEmail = (updatedApp.applicant as any)?.email
-      const eventName = (updatedApp.events as any)?.title
+      const applicant = firstRelation(updatedApp.applicant as { email?: string } | { email?: string }[] | null)
+      const event = firstRelation(updatedApp.events as { title?: string } | { title?: string }[] | null)
+      const targetEmail = applicant?.email
+      const eventName = event?.title
 
       if (targetEmail && eventName) {
         await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '')}.supabase.co/api/email`, {

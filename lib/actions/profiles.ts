@@ -21,7 +21,7 @@ export async function updateProfile(formData: FormData) {
 
   // Remove null/empty string values if you don't want to overwrite existing data with blanks
   const cleanedData = Object.fromEntries(
-    Object.entries(profileData).filter(([_, v]) => v != null && v !== '')
+    Object.entries(profileData).filter(([, v]) => v != null && v !== '')
   )
 
   const { error } = await supabase
