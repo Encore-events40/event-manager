@@ -3,23 +3,53 @@
 import { createClient } from '../supabase/server'
 import { revalidatePath } from 'next/cache'
 
-/**
- * Allows a user to update their own profile information.
- */
 export async function updateProfile(formData: FormData) {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Authentication required")
 
-  // Map the incoming form data to the fields defined in your types.ts
-  const profileData = {
-    full_name: formData.get('full_name') as string,
-    phone: formData.get('phone') as string,
-    skills: formData.get('skills') as string,
+  // Combine first and last name
+  const firstName = formData.get('first_name') as string
+  const lastName = formData.get('last_name') as string
+  const fullName = `${firstName} ${lastName}`.trim()
+
+  let avatarUrl = undefined;
+
+  // Handle the file upload if an image was selected
+  const avatarFile = formData.get('avatar') as File | null;
+  if (avatarFile && avatarFile.size > 0) {
+    const fileExt = avatarFile.name.split('.').pop();
+    // Generate a unique filename to prevent overwriting
+    const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(fileName, avatarFile, {
+        upsert: true,
+      });
+
+    if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+
+    // Retrieve the public URL for the database
+    const { data: publicUrlData } = supabase.storage
+      .from('media')
+      .getPublicUrl(fileName);
+
+    avatarUrl = publicUrlData.publicUrl;
   }
 
-  // Remove null/empty string values if you don't want to overwrite existing data with blanks
+  const profileData = {
+    full_name: fullName,
+    phone: formData.get('phone') as string,
+    gender: formData.get('gender') as string,
+    address_line_1: formData.get('address_line_1') as string,
+    address_line_2: formData.get('address_line_2') as string,
+    city: formData.get('city') as string,
+    pincode: formData.get('pincode') as string,
+    ...(avatarUrl && { avatar_url: avatarUrl }), // Only update if a new image was uploaded
+  }
+
   const cleanedData = Object.fromEntries(
     Object.entries(profileData).filter(([, v]) => v != null && v !== '')
   )
