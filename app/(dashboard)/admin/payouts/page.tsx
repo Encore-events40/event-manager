@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiDollarSign, FiUsers, FiClipboard } from "react-icons/fi";
+import { getPayouts, createPayout } from "@/lib/actions/payouts";
 
 interface PayoutRecord {
   id: string;
@@ -16,12 +17,32 @@ export default function PayoutsPage() {
     eventName: "",
     amount: "",
     notes: "",
-    additionalAmount: "",
   });
 
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
-  const isLoading = false;
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadPayouts() {
+      try {
+        const data = await getPayouts();
+        setPayouts(
+          data.map((p: any) => ({
+            id: p.id,
+            volunteerName: p.volunteer_name,
+            eventName: p.title,
+            amount: p.amount,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load payouts", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadPayouts();
+  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -36,28 +57,42 @@ export default function PayoutsPage() {
   const handleRecordPayout = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const amount =
-      Number(formData.amount) + Number(formData.additionalAmount || 0);
+    const amount = Number(formData.amount);
     if (!formData.volunteerName || !formData.eventName || amount <= 0) {
       setError("Enter a volunteer, event, and a valid amount.");
       return;
     }
-    setPayouts((currentPayouts) => [
-      {
-        id: crypto.randomUUID(),
-        volunteerName: formData.volunteerName,
-        eventName: formData.eventName,
+
+    setIsLoading(true);
+    try {
+      const newPayout = await createPayout({
+        volunteerId: formData.volunteerName, // Temporary mapping from name input to ID
+        eventId: formData.eventName, // Temporary mapping from name input to ID
         amount,
-      },
-      ...currentPayouts,
-    ]);
-    setFormData({
-      volunteerName: "",
-      eventName: "",
-      amount: "",
-      notes: "",
-      additionalAmount: "",
-    });
+        notes: formData.notes,
+      });
+
+      setPayouts((currentPayouts) => [
+        {
+          id: newPayout.id,
+          volunteerName: newPayout.volunteer_name,
+          eventName: newPayout.title,
+          amount: newPayout.amount,
+        },
+        ...currentPayouts,
+      ]);
+      setFormData({
+        volunteerName: "",
+        eventName: "",
+        amount: "",
+        notes: "",
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Failed to record payout.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const totalPaid = payouts.reduce((sum, payout) => sum + payout.amount, 0);
@@ -258,21 +293,6 @@ export default function PayoutsPage() {
               />
             </div>
 
-            {/* Additional Amount */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Amount (₹)
-              </label>
-              <input
-                type="number"
-                name="additionalAmount"
-                value={formData.additionalAmount}
-                onChange={handleInputChange}
-                placeholder="Total Amount"
-                step="0.01"
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition"
-              />
-            </div>
           </div>
 
           <button

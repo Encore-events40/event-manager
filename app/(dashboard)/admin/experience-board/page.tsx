@@ -3,6 +3,7 @@ import { FiPlus } from "react-icons/fi";
 
 const entries = [
   {
+    id: "1",
     title: "Riverside Music Fest '25",
     date: "12 Jul 2025",
     photos: 6,
@@ -10,6 +11,7 @@ const entries = [
       "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=85",
   },
   {
+    id: "2",
     title: "Charity Run 5K",
     date: "15 Jul 2025",
     photos: 6,
@@ -17,6 +19,7 @@ const entries = [
       "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=900&q=85",
   },
   {
+    id: "3",
     title: "Tech Founders Meetup",
     date: "12 Jul 2025",
     photos: 6,
@@ -42,9 +45,10 @@ export default function ExperienceBoardPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {entries.map((entry) => (
-          <article
-            key={entry.title}
-            className="rounded-lg border border-[#DDD7DC] bg-[#FCFBFB] p-3 shadow-[0_1px_2px_rgba(80,60,80,0.03)]"
+          <Link
+            href={`/admin/events/${entry.id}`}
+            key={entry.id}
+            className="rounded-lg border border-[#DDD7DC] bg-[#FCFBFB] p-3 shadow-[0_1px_2px_rgba(80,60,80,0.03)] block transition hover:border-[#8B35E3] hover:shadow-md"
           >
             <div
               role="img"
@@ -58,12 +62,12 @@ export default function ExperienceBoardPage() {
             <p className="mt-0.5 text-xs font-medium text-[#B7AAB8]">
               {entry.date} · {entry.photos} photos
             </p>
-          </article>
+          </Link>
         ))}
 
         <Link
-          href="/admin/events/new"
-          className="flex min-h-[178px] flex-col items-center justify-center rounded-lg border border-[#DDD7DC] bg-[#FCFBFB] p-4 text-center transition hover:border-[#8B35E3] hover:bg-white"
+          href="/404"
+          className="flex w-full min-h-[178px] flex-col items-center justify-center rounded-lg border border-[#DDD7DC] bg-[#FCFBFB] p-4 text-center transition hover:border-[#8B35E3] hover:bg-white"
         >
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#8B8091] text-white">
             <FiPlus className="h-7 w-7" aria-hidden="true" />
