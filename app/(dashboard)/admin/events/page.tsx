@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { EventWithCount } from "@/lib/supabase/types";
 import Toast from "@/components/admin/Toast";
 
@@ -33,7 +33,6 @@ function statusBadge(status: string | null) {
 }
 
 function EventListContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [events, setEvents] = useState<EventWithCount[]>([]);
@@ -60,8 +59,10 @@ function EventListContent() {
 
   useEffect(() => {
     const toastType = searchParams.get("toast");
-    if (toastType === "created") setToastMessage("Event created successfully!");
-    if (toastType === "updated") setToastMessage("Event updated successfully!");
+    void Promise.resolve().then(() => {
+      if (toastType === "created") setToastMessage("Event created successfully!");
+      if (toastType === "updated") setToastMessage("Event updated successfully!");
+    });
   }, [searchParams]);
 
   const fetchEvents = useCallback(async () => {
@@ -93,7 +94,7 @@ function EventListContent() {
   }, [page, search, statusFilter, sortField, sortOrder]);
 
   useEffect(() => {
-    fetchEvents();
+    void Promise.resolve().then(fetchEvents);
   }, [fetchEvents]);
 
   // Debounced search reset to page 1

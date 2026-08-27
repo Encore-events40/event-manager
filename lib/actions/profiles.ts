@@ -51,7 +51,7 @@ export async function updateProfile(formData: FormData) {
   }
 
   const cleanedData = Object.fromEntries(
-    Object.entries(profileData).filter(([_, v]) => v != null && v !== '')
+    Object.entries(profileData).filter(([, v]) => v != null && v !== '')
   )
 
   const { error } = await supabase

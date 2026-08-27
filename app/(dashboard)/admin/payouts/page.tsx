@@ -4,10 +4,19 @@ import { useState, useEffect } from "react";
 import { FiDollarSign, FiUsers, FiClipboard } from "react-icons/fi";
 import { getPayouts, createPayout } from "@/lib/actions/payouts";
 
-interface PayoutRecord {
+interface EventItem {
   id: string;
-  volunteerName: string;
-  eventName: string;
+  title: string;
+  date: string;
+  volunteer_pay: number | null;
+}
+
+interface ParticipantItem {
+  id: string;
+  full_name: string | null;
+  email: string;
+  role: "volunteer" | "influencer";
+  eventTitle: string;
   amount: number;
 }
 
@@ -19,6 +28,11 @@ export default function PayoutsPage() {
     notes: "",
   });
 
+export default function PayoutsPage() {
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<ParticipantItem[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,8 +68,115 @@ export default function PayoutsPage() {
     }));
   };
 
-  const handleRecordPayout = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const paidKeySet = useMemo(
+    () => new Set(payouts.map((row) => `${row.event_id}:${row.volunteer_id}`)),
+    [payouts]
+  );
+
+  const fetchEvents = useCallback(async () => {
+    setLoadingEvents(true);
+    try {
+      const res = await fetch("/api/admin/events?pageSize=50&order=asc");
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || "Failed to load events.");
+        return;
+      }
+      setEvents(data.events || []);
+    } catch {
+      setError("Network error loading events.");
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, []);
+
+  const fetchPayouts = useCallback(async () => {
+    setLoadingPayouts(true);
+    try {
+      const res = await fetch("/api/admin/payouts");
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || "Failed to load payouts.");
+        return;
+      }
+      setPayouts(data.payouts || []);
+    } catch {
+      setError("Network error loading payouts.");
+    } finally {
+      setLoadingPayouts(false);
+    }
+  }, []);
+
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/applications?status=pending&pageSize=1");
+      const data = await res.json();
+      if (data.success) {
+        setPendingCount(Number(data.total || 0));
+      }
+    } catch {
+      // Keep count unchanged when this auxiliary request fails.
+    }
+  }, []);
+
+  const fetchParticipants = useCallback(
+    async (eventId: string) => {
+      setLoadingParticipants(true);
+      setError("");
+      try {
+        const res = await fetch(
+          `/api/admin/applications?event_id=${eventId}&status=approved&role=all&pageSize=50`
+        );
+        const data = await res.json();
+        if (!data.success) {
+          setError(data.message || "Failed to load participants.");
+          setParticipants([]);
+          return;
+        }
+
+        const mapped: ParticipantItem[] = (data.items || [])
+          .filter((item: { applicant?: ParticipantItem }) => Boolean(item?.applicant?.id))
+          .map(
+            (item: {
+              applicant: {
+                id: string;
+                full_name: string | null;
+                email: string;
+                role: "volunteer" | "influencer";
+              };
+              events: {
+                title: string;
+                volunteer_pay: number | null;
+              } | null;
+            }) => ({
+              id: item.applicant.id,
+              full_name: item.applicant.full_name,
+              email: item.applicant.email,
+              role: item.applicant.role,
+              eventTitle: item.events?.title || "Event",
+              amount: Number(item.events?.volunteer_pay ?? 0),
+            })
+          );
+
+        setParticipants(mapped);
+      } catch {
+        setError("Network error loading participants.");
+        setParticipants([]);
+      } finally {
+        setLoadingParticipants(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    void Promise.resolve().then(async () => {
+      await Promise.all([fetchEvents(), fetchPayouts(), fetchPendingCount()]);
+    });
+  }, [fetchEvents, fetchPayouts, fetchPendingCount]);
+
+  const recordPayout = async (person: ParticipantItem) => {
+    if (!selectedEventId) return;
     setError("");
     const amount = Number(formData.amount);
     if (!formData.volunteerName || !formData.eventName || amount <= 0) {
@@ -96,7 +217,34 @@ export default function PayoutsPage() {
   };
 
   const totalPaid = payouts.reduce((sum, payout) => sum + payout.amount, 0);
-  const volunteersPaid = new Set(payouts.map((p) => p.volunteerName)).size;
+  const volunteersPaid = new Set(payouts.map((p) => p.volunteer_id)).size;
+
+  const payoutByMonths = useMemo(() => {
+    const now = new Date();
+    const buckets = Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (3 - index), 1);
+      return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+        month: date.toLocaleString("en-US", { month: "short" }).charAt(0),
+        value: 0,
+      };
+    });
+
+    for (const payout of payouts) {
+      const dateValue = payout.paid_on || payout.created_at;
+      if (!dateValue) continue;
+      const date = new Date(dateValue);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const bucket = buckets.find((item) => item.key === key);
+      if (bucket) bucket.value += Number(payout.amount || 0);
+    }
+
+    const maxValue = Math.max(...buckets.map((item) => item.value), 1);
+    return buckets.map((item) => ({
+      ...item,
+      height: Math.max(18, Math.round((item.value / maxValue) * 120)),
+    }));
+  }, [payouts]);
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 px-1 sm:px-2">
@@ -104,7 +252,7 @@ export default function PayoutsPage() {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sm font-semibold text-gray-500">
-            Admin's HQ
+            Admin&apos;s HQ
           </span>
           <span className="text-gray-400">/</span>
           <span className="text-sm font-semibold text-gray-700">Payouts</span>
@@ -113,8 +261,8 @@ export default function PayoutsPage() {
           Payouts
         </h1>
         <p className="text-gray-500 max-w-2xl">
-          Payments happen outside the platform. Record what&apos;s been paid and
-          volunteer totals update automatically.
+          Select an event, then mark volunteers and influencers as paid using
+          the check button next to their names.
         </p>
         {error && (
           <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>
@@ -133,12 +281,7 @@ export default function PayoutsPage() {
 
           {/* Histogram */}
           <div className="flex h-64 items-end justify-around gap-2 border-b border-gray-200 bg-white px-2 pt-5 sm:gap-8">
-            {[
-              { month: "J", value: 8 },
-              { month: "F", value: 10 },
-              { month: "M", value: 18 },
-              { month: "A", value: 15 },
-            ].map((item) => (
+            {payoutByMonths.map((item) => (
               <div
                 key={item.month}
                 className="flex flex-col items-center gap-2"
@@ -146,7 +289,7 @@ export default function PayoutsPage() {
                 <div className="flex items-end gap-2">
                   <div
                     className="w-10 bg-cyan-500 transition-all hover:bg-cyan-600 sm:w-16"
-                    style={{ height: `${item.value * 6}px` }}
+                    style={{ height: `${item.height}px` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-600">
@@ -179,7 +322,7 @@ export default function PayoutsPage() {
                   })}
                 </p>
                 <p className="text-xs text-green-600 mt-1">
-                  ↑ 12% vs last This Month
+                  Updated from recorded payouts
                 </p>
               </div>
               <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0">
@@ -193,7 +336,7 @@ export default function PayoutsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  Volunteers Paid
+                  People Paid
                 </p>
                 <p className="text-2xl font-black text-gray-900">
                   {volunteersPaid}
@@ -212,7 +355,7 @@ export default function PayoutsPage() {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Pending Applications
                 </p>
-                <p className="text-2xl font-black text-gray-900">3</p>
+                <p className="text-2xl font-black text-gray-900">{pendingCount}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
                 <FiClipboard className="w-6 h-6 text-yellow-600" />
@@ -222,42 +365,103 @@ export default function PayoutsPage() {
         </div>
       </div>
 
-      {/* Record a Payout Form */}
+      {/* Event and participant payout recording */}
       <div className="bg-white p-5 sm:p-8 border border-gray-100 shadow-sm">
         <h2 className="text-2xl font-black text-gray-900 mb-6">
-          Record a payout
+          Select event and mark payout
         </h2>
 
-        <form onSubmit={handleRecordPayout} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Volunteer Name */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Volunteer
-              </label>
-              <input
-                type="text"
-                name="volunteerName"
-                value={formData.volunteerName}
-                onChange={handleInputChange}
-                placeholder="Volunteer's name"
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition"
-              />
+        <div className="space-y-4">
+          {loadingEvents ? (
+            <p className="text-sm text-gray-500">Loading events...</p>
+          ) : events.length === 0 ? (
+            <p className="text-sm text-gray-500">No events available.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {events.map((event) => {
+                const active = selectedEventId === event.id;
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedEventId(event.id);
+                      fetchParticipants(event.id);
+                    }}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      active
+                        ? "border-cyan-500 bg-cyan-50"
+                        : "border-gray-200 bg-white hover:border-cyan-300"
+                    }`}
+                  >
+                    <p className="font-black text-gray-900">{event.title}</p>
+                    <p className="mt-1 text-xs font-semibold text-gray-500">
+                      {event.date}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-cyan-700">
+                      <FiChevronRight className="h-4 w-4" />
+                      <span className="text-xs font-bold">View people</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Event
-              </label>
-              <input
-                type="text"
-                name="eventName"
-                value={formData.eventName}
-                onChange={handleInputChange}
-                placeholder="Event name"
-                required
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition"
-              />
+          {selectedEventId && (
+            <div className="mt-6 rounded-xl border border-gray-200 p-4 sm:p-6">
+              <h3 className="text-lg font-black text-gray-900">
+                {selectedEvent?.title || "Selected event"}
+              </h3>
+              <p className="text-xs font-semibold text-gray-500 mt-1">
+                Click the check button to record payout.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {loadingParticipants ? (
+                  <p className="text-sm text-gray-500">Loading participants...</p>
+                ) : participants.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No approved volunteers or influencers for this event.
+                  </p>
+                ) : (
+                  participants.map((person) => {
+                    const paid = paidKeySet.has(`${selectedEventId}:${person.id}`);
+                    const disabled = paid || recordingId === person.id;
+
+                    return (
+                      <div
+                        key={person.id}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3"
+                      >
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {person.full_name || person.email}
+                          </p>
+                          <p className="text-xs text-gray-500 capitalize">
+                            {person.role} • ₹{person.amount.toLocaleString("en-IN")}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => recordPayout(person)}
+                          className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition ${
+                            paid
+                              ? "border-green-300 bg-green-100 text-green-700"
+                              : "border-cyan-400 bg-cyan-500 text-white hover:bg-cyan-600"
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                          aria-label={paid ? "Payout recorded" : "Record payout"}
+                          title={paid ? "Payout recorded" : "Record payout"}
+                        >
+                          <FiCheck className="h-5 w-5" />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* Amount */}
@@ -310,7 +514,7 @@ export default function PayoutsPage() {
           Recent Payouts
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {isLoading ? (
+          {loadingPayouts ? (
             <p className="text-sm text-gray-500">Loading payouts...</p>
           ) : payouts.length === 0 ? (
             <p className="text-sm text-gray-500">No payouts recorded yet.</p>
@@ -321,11 +525,16 @@ export default function PayoutsPage() {
                 className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"
               >
                 <p className="font-semibold text-gray-900 text-sm mb-1">
-                  {payout.volunteerName}
+                  {payout.recipient?.full_name || payout.recipient?.email || "Unknown person"}
                 </p>
-                <p className="text-xs text-gray-500 mb-3">{payout.eventName}</p>
+                <p className="text-xs text-gray-500 mb-1 capitalize">
+                  {payout.recipient?.role || "volunteer"}
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  {payout.events?.title || "Event"}
+                </p>
                 <p className="text-lg font-black text-gray-900">
-                  ₹{payout.amount.toFixed(2)}
+                  ₹{Number(payout.amount || 0).toFixed(2)}
                 </p>
               </div>
             ))

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,7 +10,7 @@ export default function SelectRolePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +41,7 @@ export default function SelectRolePage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, supabase]);
 
   async function handleRoleSelect() {
     if (!selectedRole) return;
