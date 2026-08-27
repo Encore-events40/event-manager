@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Event, EventStatus } from "@/lib/supabase/types";
 
@@ -23,46 +23,32 @@ interface FormState {
   status: EventStatus;
 }
 
+function toFormState(initialData?: Event | null): FormState {
+  return {
+    title: initialData?.title ?? "",
+    description: initialData?.description ?? "",
+    date: initialData?.date ? initialData.date.slice(0, 10) : "",
+    time: initialData?.time ?? "",
+    location: initialData?.location ?? "",
+    volunteers_needed:
+      initialData?.volunteers_needed != null ? String(initialData.volunteers_needed) : "",
+    volunteer_pay:
+      initialData?.volunteer_pay != null ? String(initialData.volunteer_pay) : "",
+    skills_required: initialData?.skills_required ?? "",
+    needs_influencer: initialData?.needs_influencer ?? false,
+    application_deadline: initialData?.application_deadline
+      ? initialData.application_deadline.slice(0, 10)
+      : "",
+    status: initialData?.status ?? "draft",
+  };
+}
+
 export default function EventForm({ mode, initialData }: EventFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState<FormState>({
-    title: "",
-    description: "",
-    date: "",
-    time: "",
-    location: "",
-    volunteers_needed: "",
-    volunteer_pay: "",
-    skills_required: "",
-    needs_influencer: false,
-    application_deadline: "",
-    status: "draft",
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      setForm({
-        title: initialData.title ?? "",
-        description: initialData.description ?? "",
-        date: initialData.date ? initialData.date.slice(0, 10) : "",
-        time: initialData.time ?? "",
-        location: initialData.location ?? "",
-        volunteers_needed:
-          initialData.volunteers_needed != null ? String(initialData.volunteers_needed) : "",
-        volunteer_pay:
-          initialData.volunteer_pay != null ? String(initialData.volunteer_pay) : "",
-        skills_required: initialData.skills_required ?? "",
-        needs_influencer: initialData.needs_influencer ?? false,
-        application_deadline: initialData.application_deadline
-          ? initialData.application_deadline.slice(0, 10)
-          : "",
-        status: initialData.status ?? "draft",
-      });
-    }
-  }, [initialData]);
+  const [form, setForm] = useState<FormState>(() => toFormState(initialData));
 
   function setField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));

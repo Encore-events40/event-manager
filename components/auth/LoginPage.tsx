@@ -84,7 +84,7 @@ export default function LoginPage() {
             </h1>
 
             <p className="text-white/80 text-sm lg:text-xl leading-6 lg:leading-8 mt-4 lg:mt-6 max-w-md lg:max-w-lg">
-              Apply to work events, promote what's coming up, or run the whole
+              Apply to work events, promote what&apos;s coming up, or run the whole
               show one account, one role, one dashboard built for it.
             </p>
           </div>
