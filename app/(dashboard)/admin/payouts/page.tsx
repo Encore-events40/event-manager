@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { FiDollarSign, FiUsers, FiClipboard } from "react-icons/fi";
-import { getPayouts, createPayout } from "@/lib/actions/payouts";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { FiDollarSign, FiUsers, FiClipboard, FiChevronRight, FiCheck } from "react-icons/fi";
 
 interface EventItem {
   id: string;
@@ -20,7 +19,32 @@ interface ParticipantItem {
   amount: number;
 }
 
+interface PayoutRecord {
+  id: string;
+  amount: number;
+  paid_on?: string | null;
+  created_at?: string | null;
+  event_id?: string;
+  volunteer_id?: string;
+  volunteerName?: string;
+  eventName?: string;
+  events?: { id: string; title: string; date?: string } | null;
+  recipient?: { id: string; full_name?: string | null; email?: string; role?: string } | null;
+}
+
 export default function PayoutsPage() {
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState<boolean>(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<ParticipantItem[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState<boolean>(false);
+  const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
+  const [loadingPayouts, setLoadingPayouts] = useState<boolean>(false);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [recordingId, setRecordingId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+
   const [formData, setFormData] = useState({
     volunteerName: "",
     eventName: "",
@@ -28,48 +52,13 @@ export default function PayoutsPage() {
     notes: "",
   });
 
-export default function PayoutsPage() {
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [participants, setParticipants] = useState<ParticipantItem[]>([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
-  const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function loadPayouts() {
-      try {
-        const data = await getPayouts();
-        setPayouts(
-          data.map((p: any) => ({
-            id: p.id,
-            volunteerName: p.volunteer_name,
-            eventName: p.title,
-            amount: p.amount,
-          }))
-        );
-      } catch (err) {
-        console.error("Failed to load payouts", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadPayouts();
-  }, []);
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  const selectedEvent = useMemo(
+    () => events.find((e) => e.id === selectedEventId),
+    [events, selectedEventId]
+  );
 
   const paidKeySet = useMemo(
-    () => new Set(payouts.map((row) => `${row.event_id}:${row.volunteer_id}`)),
+    () => new Set(payouts.map((row) => `${row.event_id || ""}:${row.volunteer_id || ""}`)),
     [payouts]
   );
 
@@ -115,109 +104,95 @@ export default function PayoutsPage() {
         setPendingCount(Number(data.total || 0));
       }
     } catch {
-      // Keep count unchanged when this auxiliary request fails.
+      // Keep count unchanged when auxiliary request fails.
     }
   }, []);
 
-  const fetchParticipants = useCallback(
-    async (eventId: string) => {
-      setLoadingParticipants(true);
-      setError("");
-      try {
-        const res = await fetch(
-          `/api/admin/applications?event_id=${eventId}&status=approved&role=all&pageSize=50`
-        );
-        const data = await res.json();
-        if (!data.success) {
-          setError(data.message || "Failed to load participants.");
-          setParticipants([]);
-          return;
-        }
-
-        const mapped: ParticipantItem[] = (data.items || [])
-          .filter((item: { applicant?: ParticipantItem }) => Boolean(item?.applicant?.id))
-          .map(
-            (item: {
-              applicant: {
-                id: string;
-                full_name: string | null;
-                email: string;
-                role: "volunteer" | "influencer";
-              };
-              events: {
-                title: string;
-                volunteer_pay: number | null;
-              } | null;
-            }) => ({
-              id: item.applicant.id,
-              full_name: item.applicant.full_name,
-              email: item.applicant.email,
-              role: item.applicant.role,
-              eventTitle: item.events?.title || "Event",
-              amount: Number(item.events?.volunteer_pay ?? 0),
-            })
-          );
-
-        setParticipants(mapped);
-      } catch {
-        setError("Network error loading participants.");
+  const fetchParticipants = useCallback(async (eventId: string) => {
+    setLoadingParticipants(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/admin/applications?event_id=${eventId}&status=approved&role=all&pageSize=50`
+      );
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || "Failed to load participants.");
         setParticipants([]);
-      } finally {
-        setLoadingParticipants(false);
+        return;
       }
-    },
-    []
-  );
+
+      const mapped: ParticipantItem[] = (data.items || [])
+        .filter((item: { applicant?: ParticipantItem }) => Boolean(item?.applicant?.id))
+        .map(
+          (item: {
+            applicant: {
+              id: string;
+              full_name: string | null;
+              email: string;
+              role: "volunteer" | "influencer";
+            };
+            events: {
+              title: string;
+              volunteer_pay: number | null;
+            } | null;
+          }) => ({
+            id: item.applicant.id,
+            full_name: item.applicant.full_name,
+            email: item.applicant.email,
+            role: item.applicant.role,
+            eventTitle: item.events?.title || "Event",
+            amount: Number(item.events?.volunteer_pay ?? 0),
+          })
+        );
+
+      setParticipants(mapped);
+    } catch {
+      setError("Network error loading participants.");
+      setParticipants([]);
+    } finally {
+      setLoadingParticipants(false);
+    }
+  }, []);
 
   useEffect(() => {
     void Promise.resolve().then(async () => {
       await Promise.all([fetchEvents(), fetchPayouts(), fetchPendingCount()]);
+      setIsLoading(false);
     });
   }, [fetchEvents, fetchPayouts, fetchPendingCount]);
 
   const recordPayout = async (person: ParticipantItem) => {
     if (!selectedEventId) return;
+    setRecordingId(person.id);
     setError("");
-    const amount = Number(formData.amount);
-    if (!formData.volunteerName || !formData.eventName || amount <= 0) {
-      setError("Enter a volunteer, event, and a valid amount.");
-      return;
-    }
-
-    setIsLoading(true);
     try {
-      const newPayout = await createPayout({
-        volunteerId: formData.volunteerName, // Temporary mapping from name input to ID
-        eventId: formData.eventName, // Temporary mapping from name input to ID
-        amount,
-        notes: formData.notes,
+      const res = await fetch("/api/admin/payouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: selectedEventId,
+          volunteer_id: person.id,
+          amount: person.amount,
+          notes: formData.notes || undefined,
+        }),
       });
-
-      setPayouts((currentPayouts) => [
-        {
-          id: newPayout.id,
-          volunteerName: newPayout.volunteer_name,
-          eventName: newPayout.title,
-          amount: newPayout.amount,
-        },
-        ...currentPayouts,
-      ]);
-      setFormData({
-        volunteerName: "",
-        eventName: "",
-        amount: "",
-        notes: "",
-      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || "Failed to record payout.");
+        return;
+      }
+      await fetchPayouts();
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to record payout.");
     } finally {
-      setIsLoading(false);
+      setRecordingId(null);
     }
   };
 
-  const totalPaid = payouts.reduce((sum, payout) => sum + payout.amount, 0);
-  const volunteersPaid = new Set(payouts.map((p) => p.volunteer_id)).size;
+  const totalPaid = payouts.reduce((sum, payout) => sum + Number(payout.amount || 0), 0);
+  const volunteersPaid = new Set(payouts.map((p) => p.volunteer_id).filter(Boolean)).size;
 
   const payoutByMonths = useMemo(() => {
     const now = new Date();
@@ -225,7 +200,7 @@ export default function PayoutsPage() {
       const date = new Date(now.getFullYear(), now.getMonth() - (3 - index), 1);
       return {
         key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-        month: date.toLocaleString("en-US", { month: "short" }).charAt(0),
+        month: date.toLocaleString("en-US", { month: "short" }),
         value: 0,
       };
     });
@@ -272,7 +247,7 @@ export default function PayoutsPage() {
       {/* Stats Cards & Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart Section */}
-        <div className="lg:col-span-2 bg-white p-5 sm:p-8 border border-gray-100 shadow-sm">
+        <div className="lg:col-span-2 bg-white p-5 sm:p-8 border border-gray-100 shadow-sm rounded-2xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-black text-gray-900">
               Payout by Months
@@ -283,12 +258,12 @@ export default function PayoutsPage() {
           <div className="flex h-64 items-end justify-around gap-2 border-b border-gray-200 bg-white px-2 pt-5 sm:gap-8">
             {payoutByMonths.map((item) => (
               <div
-                key={item.month}
+                key={item.key}
                 className="flex flex-col items-center gap-2"
               >
                 <div className="flex items-end gap-2">
                   <div
-                    className="w-10 bg-cyan-500 transition-all hover:bg-cyan-600 sm:w-16"
+                    className="w-10 bg-cyan-500 transition-all hover:bg-cyan-600 sm:w-16 rounded-t"
                     style={{ height: `${item.height}px` }}
                   />
                 </div>
@@ -366,7 +341,7 @@ export default function PayoutsPage() {
       </div>
 
       {/* Event and participant payout recording */}
-      <div className="bg-white p-5 sm:p-8 border border-gray-100 shadow-sm">
+      <div className="bg-white p-5 sm:p-8 border border-gray-100 shadow-sm rounded-2xl">
         <h2 className="text-2xl font-black text-gray-900 mb-6">
           Select event and mark payout
         </h2>
@@ -463,53 +438,12 @@ export default function PayoutsPage() {
                 )}
               </div>
             </div>
-
-            {/* Amount */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Amount (₹)
-              </label>
-              <input
-                type="number"
-                name="amount"
-                value={formData.amount}
-                onChange={handleInputChange}
-                placeholder="Total Amount"
-                step="0.01"
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Notes (optional)
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleInputChange}
-                placeholder="Type here"
-                rows={3}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none transition resize-none"
-              />
-            </div>
-
-          </div>
-
-          <button
-            type="submit"
-            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
-          >
-            Record Payout
-          </button>
-        </form>
+          )}
+        </div>
       </div>
 
       {/* Payouts List */}
-      <div>
+      <div className="bg-white p-5 sm:p-8 border border-gray-100 shadow-sm rounded-2xl">
         <h2 className="text-lg font-black text-gray-900 mb-4">
           Recent Payouts
         </h2>
@@ -525,16 +459,16 @@ export default function PayoutsPage() {
                 className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"
               >
                 <p className="font-semibold text-gray-900 text-sm mb-1">
-                  {payout.recipient?.full_name || payout.recipient?.email || "Unknown person"}
+                  {payout.recipient?.full_name || payout.recipient?.email || payout.volunteerName || "Unknown person"}
                 </p>
                 <p className="text-xs text-gray-500 mb-1 capitalize">
                   {payout.recipient?.role || "volunteer"}
                 </p>
                 <p className="text-xs text-gray-500 mb-3">
-                  {payout.events?.title || "Event"}
+                  {payout.events?.title || payout.eventName || "Event"}
                 </p>
                 <p className="text-lg font-black text-gray-900">
-                  ₹{Number(payout.amount || 0).toFixed(2)}
+                  ₹{Number(payout.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             ))
