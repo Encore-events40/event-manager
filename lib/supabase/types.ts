@@ -12,6 +12,11 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   skills: string | null;
+  gender: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  pincode: string | null;
   created_at: string;
 }
 
@@ -99,4 +104,14 @@ export interface UnifiedApplicationItem {
   event: { id: string; title: string; date: string } | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
+}
+
+export interface BrandEnquiry {
+  id: string;
+  company: string;
+  contact: string;
+  email: string | null;
+  summary: string | null;
+  status: 'new' | 'in_progress' | 'resolved';
+  created_at: string;
 }

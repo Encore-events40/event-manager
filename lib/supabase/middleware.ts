@@ -39,21 +39,24 @@ export async function updateSession(request: NextRequest) {
     url.pathname.startsWith('/volunteer') ||
     url.pathname.startsWith('/influencer')
 
-  // Rule 1: Block logged-out users from dashboards
-  if (isDashboard && !user) {
+  const isCreateProfile = url.pathname === '/create-profile'
+
+  // Rule 1: Block logged-out users from protected routes
+  if ((isDashboard || isCreateProfile) && !user) {
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Rule 2: Enforce Role-Based Routing
-  if (user && isDashboard) {
+  // Rule 2: Enforce Profile Setup and Role-Based Routing
+  if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, full_name')
       .eq('user_id', user.id)
       .single()
 
     const role = profile?.role
+    const isProfileComplete = !!profile?.full_name
 
     // If the database can't find a role, kick them out
     if (!role) {
@@ -61,33 +64,42 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (url.pathname.startsWith('/admin') && role !== 'admin') {
-      url.pathname = `/${role}`
+    // Force incomplete profiles to the setup page
+    if (!isProfileComplete && !isCreateProfile) {
+      url.pathname = '/create-profile'
       return NextResponse.redirect(url)
     }
 
-    if (url.pathname.startsWith('/volunteer') && role !== 'volunteer') {
-      url.pathname = `/${role}`
-      return NextResponse.redirect(url)
-    }
+    // Route fully onboarded users
+    if (isProfileComplete) {
+      // Keep them out of auth and setup pages
+      if (
+        url.pathname === '/login' ||
+        url.pathname === '/signup' ||
+        url.pathname === '/' ||
+        isCreateProfile
+      ) {
+        url.pathname = `/${role}`
+        return NextResponse.redirect(url)
+      }
 
-    if (url.pathname.startsWith('/influencer') && role !== 'influencer') {
-      url.pathname = `/${role}`
-      return NextResponse.redirect(url)
-    }
-  }
+      // Restrict dashboard access to specific roles
+      if (isDashboard) {
+        if (url.pathname.startsWith('/admin') && role !== 'admin') {
+          url.pathname = `/${role}`
+          return NextResponse.redirect(url)
+        }
 
-  // Rule 3: Redirect logged-in users away from auth pages and the root home page
-  if (user && (url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
+        if (url.pathname.startsWith('/volunteer') && role !== 'volunteer') {
+          url.pathname = `/${role}`
+          return NextResponse.redirect(url)
+        }
 
-    if (profile?.role) {
-      url.pathname = `/${profile.role}`
-      return NextResponse.redirect(url)
+        if (url.pathname.startsWith('/influencer') && role !== 'influencer') {
+          url.pathname = `/${role}`
+          return NextResponse.redirect(url)
+        }
+      }
     }
   }
 

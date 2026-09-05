@@ -54,18 +54,13 @@ type PayoutRow = {
   created_at: string | null;
 };
 
-const brandEnquiries = [
-  {
-    company: "Nimbus Beverages",
-    summary: "Sponsorship enquiry",
-    status: "New",
-  },
-  {
-    company: "Pulse Sportswear",
-    summary: "Co-brand enquiry",
-    status: "In progress",
-  },
-];
+type BrandEnquiryRow = {
+  id: string;
+  company: string;
+  contact: string;
+  summary: string | null;
+  status: string;
+};
 
 const statusColors = {
   approved: "#48C893",
@@ -120,7 +115,7 @@ async function getDashboardData() {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  const [eventsResult, appsResult, payoutsResult, upcomingResult] =
+  const [eventsResult, appsResult, payoutsResult, upcomingResult, enquiriesResult] =
     await Promise.all([
       supabase
         .from("events")
@@ -147,6 +142,12 @@ async function getDashboardData() {
         .order("date", { ascending: true })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("brand_enquiries")
+        .select("id,company,contact,summary,status")
+        .neq("status", "resolved")
+        .order("created_at", { ascending: false })
+        .limit(3),
     ]);
 
   const events = (eventsResult.data ?? []) as EventRow[];
@@ -159,6 +160,7 @@ async function getDashboardData() {
   );
   const payouts = (payoutsResult.data ?? []) as PayoutRow[];
   const upcoming = (upcomingResult.data ?? null) as EventRow | null;
+  const brandEnquiries = (enquiriesResult.data ?? []) as BrandEnquiryRow[];
 
   const approved = applications.filter((item) => item.status === "approved").length;
   const pending = applications.filter((item) => item.status === "pending").length;
@@ -196,6 +198,7 @@ async function getDashboardData() {
     payoutSeries,
     upcoming,
     recentApplications: applications.slice(0, 2),
+    brandEnquiries,
   };
 }
 
@@ -472,7 +475,7 @@ export default async function AdminDashboardPage() {
               <div>
                 <h2 className="text-[18px] font-black text-[#7D7189]">Brand enquiries</h2>
                 <p className="mt-1 text-[12px] font-semibold text-[#A49CA2]">
-                  {brandEnquiries.length} open conversations
+                  {data.brandEnquiries.length} open conversation{data.brandEnquiries.length !== 1 ? "s" : ""}
                 </p>
               </div>
               <Link
@@ -485,25 +488,31 @@ export default async function AdminDashboardPage() {
             </div>
 
             <div className="mt-5 divide-y divide-dashed divide-[#C9C3C5]">
-              {brandEnquiries.map((item) => (
-                <Link
-                  key={item.company}
-                  href="/admin/brand-enquiries"
-                  className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[16px] font-black text-[#81768C]">
-                      {item.company}
+              {data.brandEnquiries.length === 0 ? (
+                <p className="py-6 text-center text-[13px] font-semibold text-[#A49CA2]">
+                  No open enquiries right now.
+                </p>
+              ) : (
+                data.brandEnquiries.map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/admin/brand-enquiries"
+                    className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[16px] font-black text-[#81768C]">
+                        {item.company}
+                      </span>
+                      <span className="mt-2 block truncate text-[12px] font-semibold text-[#A49CA2]">
+                        {item.summary ?? item.contact}
+                      </span>
                     </span>
-                    <span className="mt-2 block truncate text-[12px] font-semibold text-[#A49CA2]">
-                      {item.summary}
-                    </span>
-                  </span>
-                  <Badge tone={item.status === "New" ? "new" : "progress"}>
-                    {item.status}
-                  </Badge>
-                </Link>
-              ))}
+                    <Badge tone={item.status === "new" ? "new" : "progress"}>
+                      {item.status === "new" ? "New" : "In Progress"}
+                    </Badge>
+                  </Link>
+                ))
+              )}
             </div>
           </Panel>
 
