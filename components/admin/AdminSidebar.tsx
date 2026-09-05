@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   FiCalendar,
   FiCreditCard,
   FiGrid,
+  FiLogOut,
   FiMessageSquare,
   FiSettings,
   FiUser,
@@ -15,6 +16,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
+import { createClient } from "@/lib/supabase/client";
 
 const manageLinks = [
   { href: "/admin", label: "Dashboard", icon: FiGrid },
@@ -61,10 +63,23 @@ function SidebarLink({
 
 export default function AdminSidebar() {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  async function handleSignOut() {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      } else {
+        router.replace("/login");
+      }
+    }
+  }
 
   return (
     <>
-      {/* Desktop sidebar (unchanged) */}
       <aside className="fixed inset-y-0 left-0 hidden w-[294px] flex-col overflow-hidden rounded-r-[28px] border border-[#D3D1D1] bg-[#ECEAEA] shadow-[1px_0_4px_rgba(0,0,0,0.06)] lg:flex">
         <div className="px-9 pt-16">
           <Link href="/admin" className="block w-max text-center leading-none">
@@ -93,11 +108,18 @@ export default function AdminSidebar() {
             {accountLinks.map((link) => (
               <SidebarLink key={link.href} {...link} />
             ))}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="mt-2 flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#0f172a] px-4 text-[15px] font-bold text-white shadow-[0_8px_25px_rgba(15,23,42,0.28)] transition hover:bg-[#111827]"
+            >
+              <FiLogOut className="h-5 w-5" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* Mobile hamburger button (hidden when drawer open) */}
       {!open && (
         <button
           aria-label="Open menu"
@@ -108,7 +130,6 @@ export default function AdminSidebar() {
         </button>
       )}
 
-      {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
           <div
@@ -156,6 +177,17 @@ export default function AdminSidebar() {
                 {accountLinks.map((link) => (
                   <SidebarLink key={link.href} {...link} />
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    handleSignOut();
+                  }}
+                  className="mt-2 flex w-full items-center justify-center gap-3 rounded-xl bg-[#0f172a] px-4 py-3 text-[15px] font-bold text-white shadow-[0_8px_25px_rgba(15,23,42,0.28)] transition hover:bg-[#111827]"
+                >
+                  <FiLogOut className="h-5 w-5" />
+                  <span>Logout</span>
+                </button>
               </div>
             </div>
           </aside>
