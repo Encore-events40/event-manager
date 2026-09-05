@@ -74,7 +74,11 @@ const applicationBreakdown = [
 ];
 
 const achievements = [
-  { title: "Event Star", detail: "Completed 10 events", color: "bg-[#93c5fd]" },
+  {
+    title: "Event Star",
+    detail: "Completed 10 events",
+    color: "bg-[#93c5fd]",
+  },
   {
     title: "Team Player",
     detail: "Great collaboration!",
@@ -87,35 +91,53 @@ const achievements = [
   },
 ];
 
-export default function VolunteerDashboardPage() {
+export default async function VolunteerDashboardPage() {
+  // Create the server-side Supabase client
+  const supabase = await createClient();
+
+  // Get currently authenticated user
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  // If there is no authenticated user, send them to login
+  if (userError || !user) {
+    redirect("/login");
+  }
+
+  // Fetch the user's profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
   return (
-    <div className="relative overflow-hidden px-2 py-4 lg:px-6">
+    <div className="relative min-h-screen overflow-hidden bg-[#0b1424] px-2 py-4 lg:px-6">
       <div className="mx-auto max-w-[1280px]">
+        {/* Header */}
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-4xl font-bold tracking-tight text-white">
-              Welcome back, Ananya!
+              Welcome back, {profile?.full_name || "Volunteer"}!
             </h1>
           </div>
 
           <div className="flex items-center gap-4 self-end md:self-auto">
-            <button className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white shadow-[0_0_20px_rgba(59,130,246,0.25)]">
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white shadow-[0_0_20px_rgba(59,130,246,0.25)]"
+            >
               <FiBell className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-2">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#f4b8a0] via-[#c96f77] to-[#733b66] text-lg font-bold text-white">
-                A
-              </div>
-              <div>
-                <div className="text-base font-semibold text-white">
-                  Ananya Sharma
-                </div>
-                <div className="text-sm text-slate-300">Volunteer</div>
-              </div>
-            </div>
+
+            <ProfileWidget profile={profile} />
           </div>
         </header>
 
+        {/* Stats */}
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {statCards.map(({ label, value, meta, icon: Icon }) => (
             <div
@@ -127,39 +149,20 @@ export default function VolunteerDashboardPage() {
                   <div className="text-3xl font-bold text-white">{value}</div>
                   <div className="mt-2 text-sm text-slate-300">{meta}</div>
                 </div>
+
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#83b5ff]/20 text-[#b7d4ff]">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
+
               <div className="mt-4 text-sm font-medium text-[#b7d4ff]">
                 {label}
               </div>
             </div>
           ))}
-  // Your backend profile fetching
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  return (
-    <div className="min-h-screen bg-[#F6F4F3] flex items-center justify-center p-8 relative">
-      {/* Top Right Header Area - Your Profile Widget */}
-      <div className="absolute top-6 right-8">
-        <ProfileWidget profile={profile} />
-      </div>
-
-      {/* Centered Card - Frontend Team's UI */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 max-w-md w-full text-center">
-        <h1 className="text-2xl font-bold text-black mb-1">Volunteer Dashboard</h1>
-        <p className="text-gray-500 text-sm mb-6">
-          Signed in as <span className="font-semibold text-gray-700">{user.email}</span>
-        </p>
-        <div className="inline-block bg-purple-100 text-purple-600 text-xs font-bold px-3 py-1 rounded-full mb-8">
-          ROLE: VOLUNTEER
         </div>
 
+        {/* Earnings */}
         <div className="mt-8 grid gap-5 xl:grid-cols-[1.6fr_0.9fr]">
           <div className="rounded-[26px] border border-white/10 bg-[rgba(89,103,123,0.22)] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.3)] backdrop-blur-xl">
             <div className="mb-5 flex items-center justify-between">
@@ -172,6 +175,7 @@ export default function VolunteerDashboardPage() {
               viewBox="0 0 640 250"
               className="h-[220px] w-full"
               aria-label="Earnings chart"
+              role="img"
             >
               <defs>
                 <linearGradient id="lineGlow" x1="0" x2="1">
@@ -215,8 +219,9 @@ export default function VolunteerDashboardPage() {
             </svg>
           </div>
 
+          {/* Earnings by month */}
           <div className="rounded-[26px] border border-white/10 bg-[rgba(89,103,123,0.22)] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.3)] backdrop-blur-xl">
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5">
               <h2 className="text-2xl font-semibold text-white">
                 Earnings by Month
               </h2>
@@ -231,7 +236,9 @@ export default function VolunteerDashboardPage() {
                 }}
               >
                 <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full bg-[#101a2f] text-center shadow-inner">
-                  <div className="text-3xl font-bold text-white">₹8,400</div>
+                  <div className="text-3xl font-bold text-white">
+                    ₹8,400
+                  </div>
                   <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-300">
                     Total
                   </div>
@@ -259,6 +266,7 @@ export default function VolunteerDashboardPage() {
                       />
                       {item.label}
                     </div>
+
                     <div>₹{item.value}</div>
                   </div>
                 ))}
@@ -267,11 +275,14 @@ export default function VolunteerDashboardPage() {
           </div>
         </div>
 
+        {/* Bottom sections */}
         <div className="mt-8 grid gap-5 xl:grid-cols-[1.2fr_1fr_1fr]">
+          {/* Upcoming Events */}
           <div className="rounded-[26px] border border-white/10 bg-[rgba(89,103,123,0.22)] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.3)] backdrop-blur-xl">
             <h3 className="text-2xl font-semibold text-white">
               Upcoming events
             </h3>
+
             <p className="mt-1 text-sm text-slate-300">Open to apply</p>
 
             <div className="mt-5 space-y-4">
@@ -282,19 +293,23 @@ export default function VolunteerDashboardPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-[#22c1c3] via-[#1f7ae0] to-[#8b5cf6]" />
+
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-lg font-semibold text-white">
                           {event.title}
                         </div>
+
                         <div className="text-lg font-semibold text-[#ddd7ff]">
                           {event.amount}
                         </div>
                       </div>
+
                       <div className="mt-2 flex items-center gap-2 text-sm text-slate-300">
                         <FiCalendar className="h-4 w-4" />
                         {event.date} • {event.time}
                       </div>
+
                       <div className="mt-2 flex items-center gap-2 text-sm text-slate-300">
                         <FiMapPin className="h-4 w-4" />
                         {event.location}
@@ -311,15 +326,20 @@ export default function VolunteerDashboardPage() {
               ))}
             </div>
 
-            <button className="mt-5 w-full rounded-xl border border-[#7dd3fc] bg-transparent px-4 py-3 text-sm font-medium text-[#7dd3fc] transition hover:bg-[#7dd3fc]/10">
+            <button
+              type="button"
+              className="mt-5 w-full rounded-xl border border-[#7dd3fc] bg-transparent px-4 py-3 text-sm font-medium text-[#7dd3fc] transition hover:bg-[#7dd3fc]/10"
+            >
               View All Upcoming Events
             </button>
           </div>
 
+          {/* Application Overview */}
           <div className="rounded-[26px] border border-white/10 bg-[rgba(89,103,123,0.22)] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.3)] backdrop-blur-xl">
             <h3 className="text-2xl font-semibold text-white">
               Application Overview
             </h3>
+
             <div className="mt-5 flex flex-col items-center">
               <div
                 className="relative flex h-44 w-44 items-center justify-center rounded-full"
@@ -347,8 +367,10 @@ export default function VolunteerDashboardPage() {
                         className="inline-block h-2.5 w-2.5 rounded-full"
                         style={{ background: item.color }}
                       />
+
                       {item.label}
                     </div>
+
                     <span>{item.value}</span>
                   </div>
                 ))}
@@ -356,10 +378,12 @@ export default function VolunteerDashboardPage() {
             </div>
           </div>
 
+          {/* Achievements */}
           <div className="rounded-[26px] border border-white/10 bg-[rgba(89,103,123,0.22)] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.3)] backdrop-blur-xl">
             <h3 className="text-2xl font-semibold text-white">
               Recent Achievements
             </h3>
+
             <div className="mt-5 space-y-3">
               {achievements.map((item) => (
                 <div
@@ -371,14 +395,25 @@ export default function VolunteerDashboardPage() {
                   >
                     ★
                   </div>
+
                   <div>
-                    <div className="font-semibold text-white">{item.title}</div>
-                    <div className="text-sm text-slate-300">{item.detail}</div>
+                    <div className="font-semibold text-white">
+                      {item.title}
+                    </div>
+
+                    <div className="text-sm text-slate-300">
+                      {item.detail}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Sign out */}
+        <div className="mt-8 flex justify-end pb-8">
+          <SignOutButton />
         </div>
       </div>
     </div>
